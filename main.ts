@@ -1,17 +1,12 @@
 enum Command { FWD, BKW, LEFT, RIGHT }
 
 let speed = 100
-let debounceMs = 0
-let waitNewLateral = 1000
 
 // in aer = 0
 // pe podea alb = 1, negru = 0
 let left = -1
 let right = -1
-let leftWaitingForDebounce = -1
-let rightWaitingForDebounce = -1
-let timestampOfLastModification = -1
-let timestampOfLastLateral = -1
+
 let lastLateral: Command;
 
 let running = false
@@ -38,43 +33,13 @@ basic.forever(function on_forever() {
     const newLeft = maqueen.readPatrol(maqueen.Patrol.PatrolLeft)
     const newRight = maqueen.readPatrol(maqueen.Patrol.PatrolRight)
 
-    // if (newLeft == leftWaitingForDebounce && newRight == rightWaitingForDebounce) {
-    //   // values didn't change
-    //   if (now <= timestampOfLastModification + debounceMs) {
-    //       // but the waiting time has not passed; so wait a bit more
-    //       return;
-    //   } // else the time passed, so continue
-    // } else {
-    //     // the values did change
-    //     timestampOfLastModification = now;
-    //     leftWaitingForDebounce = newLeft;
-    //     rightWaitingForDebounce = newRight;
-    //     return;
-    // }
-
-    // if (newLeft == left && newRight == right) {
-    //     // nothing changed
-    //     return;
-    // }
-    // serial.writeString("now="); serial.writeNumber(now);
-    // serial.writeString(", command crt="); serial.writeNumber(command);
-    // serial.writeString(", l="); serial.writeNumber(left);
-    // serial.writeString("/"); serial.writeNumber(newLeft);
-    // serial.writeString(", r="); serial.writeNumber(right);
-    // serial.writeString("/"); serial.writeNumber(newRight);
-    // serial.writeString(", lastLat="); serial.writeNumber(lastLateral);
-    // serial.writeString(", lastLatTS="); serial.writeNumber(timestampOfLastLateral);
-    // serial.writeLine("")
-
     if (command == Command.LEFT || command == Command.RIGHT) {
-    //     timestampOfLastLateral = now;
         lastLateral = command
     }
 
     let newCommand = command;
     if (command == Command.FWD // going forward
             && newLeft == 1 && newRight == 1) { // and left the track
-        // const waitingOver = now > timestampOfLastLateral + waitNewLateral;
         if (newLeft != left && (lastLateral == Command.RIGHT || inertia == 0)) {
             // just exited w/ left sensor; so from now on go left to try 
             // to reenter the track
@@ -84,52 +49,16 @@ basic.forever(function on_forever() {
         } else if (inertia > 0) {
             newCommand = lastLateral
         }
-
-        // if (lastLateral < 0 || waitingOver || newCommand == lastLateral) {
-        //     // we'll continue
-        // } else {
-        //     serial.writeLine("Ignoring new command=" + newCommand)
-        //     return;
-        // }
     } else { // searching for track
         if (newLeft == 1 && newRight == 1) {
             // still out; so nothing to do
         } else {
-        // if (newLeft == 0 && newRight == 0 // somehow both on black, so definitly back on track
-        //     || newLeft != left && command == Command.RIGHT // back on track, but w/ the led that just left
-        //     || newRight != right && command == Command.LEFT) { // idem
             newCommand = Command.FWD;
         } 
     }
 
     left = newLeft
     right = newRight
-
-    // serial.writeString("new command="); serial.writeNumber(newCommand);
-    // serial.writeLine("");
-
-    // if (command == newCommand) {
-    //     return;
-    // } 
-
-    // command = newCommand;
-    // let newCommand = Command.FWD;
-
-    // if (newLeft == 0 && newRight == 0) {
-    //     // both in
-    //     // lineFollowFlag = lineFollowFlagMiddle
-    // } else if (newLeft == 0 && newRight == 1) {
-    //     // left in
-    //     if (lineFollowFlag > 1) { lineFollowFlag--; }
-    // } else if (newLeft == 1 && newRight == 0) {
-    //     // right in
-    //     if (lineFollowFlag < lineFollowFlagMiddle * 2) { lineFollowFlag++; }
-    // } else {
-    //     // both out
-    //     if (lineFollowFlag == lineFollowFlagMiddle) { newCommand = Command.BKW; }
-    //     if (lineFollowFlag < lineFollowFlagMiddle) { newCommand = Command.RIGHT; }
-    //     if (lineFollowFlag > lineFollowFlagMiddle) { newCommand = Command.LEFT; }
-    // }
 
     serial.writeLine("cmd=" + lastLateral + ",i=" + inertia);
 
@@ -175,7 +104,10 @@ bluetooth.onBluetoothDisconnected(function () {
 })
 
 bluetooth.onUartDataReceived(serial.delimiters(Delimiters.SemiColon), function () {
-    basic.showString(bluetooth.uartReadUntil(serial.delimiters(Delimiters.SemiColon)))
+    const str = bluetooth.uartReadUntil(serial.delimiters(Delimiters.SemiColon));
+    if (str == "S") { setRunning(false); } 
+    else if (str == "F") { setRunning(true); }
+    basic.showString(str);
 })
 
 
